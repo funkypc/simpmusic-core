@@ -1160,31 +1160,21 @@ class Ytmusic {
         }
     }
 
-    suspend fun searchTidalId(
-        url: String,
+    suspend fun searchSubsonic(
+        baseUrl: String,
         query: String,
-    ) = httpClient.get("$url/search") {
-        val parsedUrl = Url(url)
-        if (!parsedUrl.user.isNullOrEmpty() && parsedUrl.password != null) {
-            basicAuth(parsedUrl.user!!, parsedUrl.password!!)
-        }
-        contentType(ContentType.Application.Json)
-        header("accept", "*/*")
-        parameter("s", query)
-    }
-
-    suspend fun getTidalStream(
-        url: String,
-        tidalId: String,
-    ) = httpClient.get("$url/track") {
-        val parsedUrl = Url(url)
-        if (!parsedUrl.user.isNullOrEmpty() && parsedUrl.password != null) {
-            basicAuth(parsedUrl.user!!, parsedUrl.password!!)
-        }
-        contentType(ContentType.Application.Json)
-        header("accept", "*/*")
-        parameter("id", tidalId)
-        parameter("quality", "HIGH")
+        user: String,
+        token: String,
+        salt: String
+    ) = httpClient.get("$baseUrl/rest/search3") {
+        parameter("query", query)
+        parameter("songCount", 10)
+        parameter("f", "json")
+        parameter("u", user)
+        parameter("t", token)
+        parameter("s", salt)
+        parameter("v", "1.16.1")
+        parameter("c", "simpmusic")
     }
 }
 

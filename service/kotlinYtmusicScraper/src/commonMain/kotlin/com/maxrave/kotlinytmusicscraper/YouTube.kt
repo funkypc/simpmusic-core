@@ -1873,49 +1873,33 @@ class YouTube {
             ytMusic.getSimpMusicChart().body<SimpMusicChartResponse>()
         }
 
-    suspend fun getTidalStream(
+    suspend fun getSubsonicStreamUrl(
         url: String,
         query: String,
-        durationSeconds: Int,
+        durationSeconds: Int?,
     ) = runCatching {
-        val searchRes = ytMusic.searchTidalId(url, query).body<TidalSearchResponse>()
-        val firstRes = searchRes.data?.items?.firstOrNull { it?.duration?.let { dur -> abs(dur - durationSeconds) <= 1 } ?: false }
-        val matchedItem =
-            firstRes ?: searchRes.data
-                ?.items
-                ?.filter { it?.duration?.let { dur -> abs(dur - durationSeconds) <= 1 } ?: false }
-                ?.minByOrNull { abs((it?.duration ?: 0) - durationSeconds) }
-        val trackId = matchedItem?.id ?: throw Exception("No matching track found")
-        val streamRes = ytMusic.getTidalStream(url, "$trackId").body<TidalStreamResponse>()
-        TidalStreamResult(
-            stream = streamRes,
-            bpm = matchedItem.bpm,
-            musicKey = matchedItem.key,
-            keyScale = matchedItem.keyScale,
-        )
-    }
-
-    /**
-     * Search Tidal for metadata only (bpm, key, keyScale) without fetching the stream.
-     */
-    suspend fun searchTidalMetadata(
-        url: String,
-        query: String,
-        durationSeconds: Int,
-    ) = runCatching {
-        val searchRes = ytMusic.searchTidalId(url, query).body<TidalSearchResponse>()
-        val firstRes = searchRes.data?.items?.firstOrNull { it?.duration?.let { dur -> abs(dur - durationSeconds) <= 1 } ?: false }
-        val matchedItem =
-            firstRes ?: searchRes.data
-                ?.items
-                ?.filter { it?.duration?.let { dur -> abs(dur - durationSeconds) <= 1 } ?: false }
-                ?.minByOrNull { abs((it?.duration ?: 0) - durationSeconds) }
-                ?: throw Exception("No matching track found")
-        TidalMetadataResult(
-            bpm = matchedItem.bpm,
-            musicKey = matchedItem.key,
-            keyScale = matchedItem.keyScale,
-        )
+        val parsedUrl = io.ktor.http.Url(url)
+        val portStr = if (parsedUrl.port != 0 && parsedUrl.port != 80 && parsedUrl.port != 443) ":${parsedUrl.port}" else ""
+        val baseUrl = "${parsedUrl.protocol.name}://${parsedUrl.host}$portStr${parsedUrl.encodedPath.removeSuffix("/")}"
+        
+        val user = parsedUrl.user ?: throw Exception("Missing user")
+        val password = parsedUrl.password ?: throw Exception("Missing password")
+        
+        val salt = kotlinx.datetime.Clock.System.now().toEpochMilliseconds().toString()
+        val token = okio.ByteString.Companion.encodeUtf8(password + salt).md5().hex()
+        
+        val searchRes = ytMusic.searchSubsonic(baseUrl, query, user, token, salt).body<com.maxrave.kotlinytmusicscraper.models.response.SubsonicSearchResponse>()
+        val songs = searchRes.subsonicResponse?.searchResult3?.song ?: throw Exception("No songs found")
+        
+        val bestSong = if (durationSeconds != null) {
+            songs.minByOrNull { kotlin.math.abs((it.duration ?: 0) - durationSeconds) } ?: songs.first()
+        } else {
+            songs.first()
+        }
+        
+        val songId = bestSong.id ?: throw Exception("No song ID")
+        
+        "$baseUrl/rest/stream?id=$songId&u=$user&t=$token&s=$salt&v=1.16.1&c=simpmusic"
     }
 
     private fun getNParam(listFormat: List<PlayerResponse.StreamingData.Format>): String? =
@@ -1993,25 +1977,18 @@ class YouTube {
                                     .replace("  ", " ")
                             Logger.d("Stream", "Search query for 320kbps: $q")
                             val res =
-                                getTidalStream(your320kbpsUrl, q, durationSecond)
+                                getSubsonicStreamUrl(your320kbpsUrl, q, durationSecond)
                                     .apply {
                                         onSuccess {
-                                            Logger.w("Stream", "Tidal response: $this")
+                                            Logger.w("Stream", "Subsonic response: $this")
                                         }.onFailure {
-                                            Logger.e("Stream", "Tidal error: ${it.message}", it)
+                                            Logger.e("Stream", "Subsonic error: ${it.message}", it)
                                         }
                                     }.getOrNull()
-                            val audioData =
+                            if (res != null) {
+                                Logger.d("Stream", "Found potential 320kbps stream from Subsonic: $res")
                                 res
-                                    ?.stream
-                                    ?.data
-                                    ?.manifest
-                                    ?.decodeTidalManifest()
-                            if (audioData != null) {
-                                Logger.d("Stream", "Found potential 320kbps stream from Tidal: $res")
-                                audioData.urls.firstOrNull() ?: audioFormat?.url
                             } else {
-                                Logger.d("Stream", "Found potential 320kbps stream from Tidal manifest DASH: ${res?.stream?.data?.manifest}")
                                 audioFormat?.url
                             }
                         } else {

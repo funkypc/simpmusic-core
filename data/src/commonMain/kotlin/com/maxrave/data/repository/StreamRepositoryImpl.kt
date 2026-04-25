@@ -188,11 +188,11 @@ internal class StreamRepositoryImpl(
                     Logger.w("Stream", "expired at ${now().plusSeconds(response.streamingData?.expiresInSeconds?.toLong() ?: 0L)}")
                     val prefer320kbps = dataStoreManager.prefer320kbpsStream.first() == DataStoreManager.TRUE
                     val durationSecond = response.videoDetails?.lengthSeconds?.toIntOrNull()
-                    // AutoMix metadata from Tidal (hoisted for NewFormatEntity insertion below)
+                    // Metadata is null since Subsonic doesn't provide bpm/key/scale
                     var tidalBpm: Int? = null
                     var tidalMusicKey: String? = null
                     var tidalKeyScale: String? = null
-                    if (prefer320kbps && !isVideo && durationSecond != null && data.third == MediaType.Song) {
+                    if (prefer320kbps && !isVideo) {
                         val your320kbpsUrl = dataStoreManager.your320kbpsUrl.first()
                         Logger.d("Stream", "Prefer 320kbps enabled ${response.videoDetails}")
                         val title = response.videoDetails?.title ?: ""
@@ -210,80 +210,27 @@ internal class StreamRepositoryImpl(
                                 .replace(".", " ")
                                 .replace("  ", " ")
                         Logger.d("Stream", "Search query for 320kbps: $q")
-                        val tidalResult =
+                        val subsonicResult =
                             youTube
-                                .getTidalStream(your320kbpsUrl, q, durationSecond)
+                                .getSubsonicStreamUrl(your320kbpsUrl, q, durationSecond)
                                 .apply {
                                     onSuccess {
-                                        Logger.w("Stream", "Tidal response: $this")
+                                        Logger.w("Stream", "Subsonic response url: $this")
                                     }.onFailure {
-                                        Logger.e("Stream", "Tidal error: ${it.message}", it)
+                                        Logger.e("Stream", "Subsonic error: ${it.message}", it)
                                     }
                                 }.getOrNull()
-                        // Extract AutoMix metadata from Tidal match (bpm, key, keyScale)
-                        tidalBpm = tidalResult?.bpm
-                        tidalMusicKey = tidalResult?.musicKey
-                        tidalKeyScale = tidalResult?.keyScale
-                        val audioData =
-                            tidalResult
-                                ?.stream
-                                ?.data
-                                ?.manifest
-                                ?.decodeTidalManifest()
-                        if (audioData != null) {
-                            Logger.d("Stream", "Found potential 320kbps stream from Tidal: $tidalResult")
+                        
+                        if (subsonicResult != null) {
+                            Logger.d("Stream", "Found potential 320kbps stream from Subsonic: $subsonicResult")
                             format =
                                 format?.copy(
                                     itag = 0,
-                                    url = audioData.urls.firstOrNull() ?: format.url,
-                                    mimeType = "${audioData.mimeType}; codecs=\"${audioData.codecs}\"",
-                                    bitrate = 320000,
-                                )
-                        } else if (tidalResult
-                                ?.stream
-                                ?.data
-                                ?.manifest
-                                ?.decodeBase64()
-                                ?.contains("MPD") == true
-                        ) {
-                            Logger.d("Stream", "Found potential 320kbps stream from Tidal manifest DASH: ${tidalResult.stream.data?.manifest}")
-                            format =
-                                format?.copy(
-                                    itag = 0,
-                                    url =
-                                        tidalResult.stream.data
-                                            ?.manifest
-                                            ?.decodeBase64(),
+                                    url = subsonicResult,
+                                    mimeType = "audio/mpeg; codecs=\"mp3\"",
                                     bitrate = 320000,
                                 )
                         }
-                    } else if (!isVideo && durationSecond != null && data.third == MediaType.Song) {
-                        val your320kbpsUrl = dataStoreManager.your320kbpsUrl.first()
-                        val title = response.videoDetails?.title ?: ""
-                        val author = response.videoDetails?.author ?: ""
-                        val q =
-                            "$title $author"
-                                .replace(
-                                    Regex("\\((feat\\.|ft.|cùng với|con|mukana|com|avec|合作音乐人: ) "),
-                                    " ",
-                                ).replace(
-                                    Regex("( và | & | и | e | und |, |和| dan)"),
-                                    " ",
-                                ).replace("  ", " ")
-                                .replace(Regex("([()])"), "")
-                                .replace(".", " ")
-                                .replace("  ", " ")
-                        Logger.d("Stream", "Search Tidal metadata for: $q")
-                        youTube
-                            .searchTidalMetadata(your320kbpsUrl, q, durationSecond)
-                            .onSuccess { metadata ->
-                                Logger.w("Stream", "Tidal metadata: $metadata")
-                                tidalBpm = metadata.bpm
-                                tidalMusicKey = metadata.musicKey
-                                tidalKeyScale = metadata.keyScale
-                            }.onFailure {
-                                Logger.e("Stream", "Tidal metadata error: ${it.message}", it)
-                            }
                     }
                     insertNewFormat(
                         NewFormatEntity(
