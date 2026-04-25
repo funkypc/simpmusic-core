@@ -55,6 +55,8 @@ import io.ktor.http.userAgent
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.serialization.kotlinx.protobuf.protobuf
 import io.ktor.serialization.kotlinx.xml.xml
+import io.ktor.client.request.basicAuth
+import io.ktor.http.Url
 import io.ktor.utils.io.readRemaining
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -1162,6 +1164,10 @@ class Ytmusic {
         url: String,
         query: String,
     ) = httpClient.get("$url/search") {
+        val parsedUrl = Url(url)
+        if (!parsedUrl.user.isNullOrEmpty() && parsedUrl.password != null) {
+            basicAuth(parsedUrl.user!!, parsedUrl.password!!)
+        }
         contentType(ContentType.Application.Json)
         header("accept", "*/*")
         parameter("s", query)
@@ -1171,6 +1177,10 @@ class Ytmusic {
         url: String,
         tidalId: String,
     ) = httpClient.get("$url/track") {
+        val parsedUrl = Url(url)
+        if (!parsedUrl.user.isNullOrEmpty() && parsedUrl.password != null) {
+            basicAuth(parsedUrl.user!!, parsedUrl.password!!)
+        }
         contentType(ContentType.Application.Json)
         header("accept", "*/*")
         parameter("id", tidalId)
