@@ -105,6 +105,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import okio.ByteString.Companion.encodeUtf8
+import kotlinx.datetime.Clock
 import okio.Path
 import kotlin.jvm.JvmInline
 import kotlin.math.abs
@@ -1885,8 +1887,8 @@ class YouTube {
         val user = parsedUrl.user ?: throw Exception("Missing user")
         val password = parsedUrl.password ?: throw Exception("Missing password")
         
-        val salt = kotlinx.datetime.Clock.System.now().toEpochMilliseconds().toString()
-        val token = okio.ByteString.Companion.encodeUtf8(password + salt).md5().hex()
+        val salt = Clock.System.now().toEpochMilliseconds().toString()
+        val token = (password + salt).encodeUtf8().md5().hex()
         
         val searchRes = ytMusic.searchSubsonic(baseUrl, query, user, token, salt).body<com.maxrave.kotlinytmusicscraper.models.response.SubsonicSearchResponse>()
         val songs = searchRes.subsonicResponse?.searchResult3?.song ?: throw Exception("No songs found")
