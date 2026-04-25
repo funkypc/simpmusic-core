@@ -72,6 +72,21 @@ class DefaultVlcDiscoverer : NativeDiscoveryStrategy {
             val fallbackDir = File("vlc-natives/$subDir")
             if (fallbackDir.exists() && hasVlcLib(fallbackDir)) return fallbackDir.absolutePath
 
+            // 4. Fallback: System installations
+            if (osName.contains("win")) {
+                val sysPaths = listOf("C:\\Program Files\\VideoLAN\\VLC", "C:\\Program Files (x86)\\VideoLAN\\VLC")
+                for (p in sysPaths) {
+                    val dir = File(p)
+                    if (dir.exists() && hasVlcLib(dir)) return dir.absolutePath
+                }
+            } else if (osName.contains("linux")) {
+                val sysPaths = listOf("/usr/lib", "/usr/lib/x86_64-linux-gnu", "/usr/lib/aarch64-linux-gnu")
+                for (p in sysPaths) {
+                    val dir = File(p)
+                    if (dir.exists() && hasVlcLib(dir)) return dir.absolutePath
+                }
+            }
+
             return null
         }
 
