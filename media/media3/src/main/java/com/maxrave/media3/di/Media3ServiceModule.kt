@@ -226,7 +226,8 @@ private fun provideResolvingDataSourceFactory(
     streamRepository: StreamRepository,
     coroutineScope: CoroutineScope,
 ): DataSource.Factory {
-    val chunkLength = 10 * 512 * 1024L
+    val chunkLength = 25 * 1024 * 1024L
+    val subsonicChunkLength = 256 * 1024 * 1024L
     return ResolvingDataSource.Factory(cacheDataSourceFactory) { dataSpec ->
         val mediaId = dataSpec.key ?: error("No media id")
         Logger.w("Stream", mediaId)
@@ -308,7 +309,7 @@ private fun provideResolvingDataSourceFactory(
                         Logger.d("Stream", "is 403 $is403Url")
                         if (!is403Url) {
                             dataSpecReturn = if (audioUrl.contains("/rest/stream")) {
-                                dataSpec.withUri(audioUrl.toUri())
+                                dataSpec.withUri(audioUrl.toUri()).subrange(dataSpec.uriPositionOffset, subsonicChunkLength)
                             } else {
                                 dataSpec.withUri(audioUrl.toUri()).subrange(dataSpec.uriPositionOffset, chunkLength)
                             }
@@ -328,7 +329,7 @@ private fun provideResolvingDataSourceFactory(
                         Logger.d("Stream", it)
                         Logger.w("Stream", "Audio")
                         dataSpecReturn = if (it.contains("/rest/stream")) {
-                            dataSpec.withUri(it.toUri())
+                            dataSpec.withUri(it.toUri()).subrange(dataSpec.uriPositionOffset, subsonicChunkLength)
                         } else {
                             dataSpec.withUri(it.toUri()).subrange(dataSpec.uriPositionOffset, chunkLength)
                         }
