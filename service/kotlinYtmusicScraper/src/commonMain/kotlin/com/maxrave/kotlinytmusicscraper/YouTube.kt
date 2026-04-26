@@ -1290,7 +1290,7 @@ class YouTube {
                         cpn,
                         signatureTimestamp =
                             run {
-                                val today = Clock.System.todayIn(TimeZone.UTC)
+                                val today = kotlinx.datetime.Clock.System.todayIn(TimeZone.UTC)
                                 val epoch =
                                     Instant
                                         .fromEpochSeconds(0)
