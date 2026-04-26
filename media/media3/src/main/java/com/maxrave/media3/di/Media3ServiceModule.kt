@@ -307,7 +307,11 @@ private fun provideResolvingDataSourceFactory(
                         val is403Url = streamRepository.is403Url(audioUrl).firstOrNull() != false
                         Logger.d("Stream", "is 403 $is403Url")
                         if (!is403Url) {
-                            dataSpecReturn = dataSpec.withUri(audioUrl.toUri()).subrange(dataSpec.uriPositionOffset, chunkLength)
+                            dataSpecReturn = if (audioUrl.contains("/rest/stream")) {
+                                dataSpec.withUri(audioUrl.toUri())
+                            } else {
+                                dataSpec.withUri(audioUrl.toUri()).subrange(dataSpec.uriPositionOffset, chunkLength)
+                            }
                             resolved = true
                             return@runBlocking
                         }
@@ -323,7 +327,11 @@ private fun provideResolvingDataSourceFactory(
                     ?.let {
                         Logger.d("Stream", it)
                         Logger.w("Stream", "Audio")
-                        dataSpecReturn = dataSpec.withUri(it.toUri()).subrange(dataSpec.uriPositionOffset, chunkLength)
+                        dataSpecReturn = if (it.contains("/rest/stream")) {
+                            dataSpec.withUri(it.toUri())
+                        } else {
+                            dataSpec.withUri(it.toUri()).subrange(dataSpec.uriPositionOffset, chunkLength)
+                        }
                         resolved = true
                     }
             }
