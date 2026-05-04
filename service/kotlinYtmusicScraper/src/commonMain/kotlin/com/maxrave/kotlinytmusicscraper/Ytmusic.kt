@@ -1168,7 +1168,7 @@ class Ytmusic {
         salt: String
     ) = httpClient.get("$baseUrl/rest/search3") {
         parameter("query", query)
-        parameter("songCount", 10)
+        parameter("songCount", 30)
         parameter("f", "json")
         parameter("u", user)
         parameter("t", token)

@@ -1893,7 +1893,44 @@ class YouTube {
         val songs = searchRes.subsonicResponse?.searchResult3?.song ?: throw Exception("No songs found")
         
         val bestSong = if (durationSeconds != null) {
-            songs.minByOrNull { kotlin.math.abs((it.duration ?: 0) - durationSeconds) } ?: songs.first()
+            val queryLower = query.lowercase()
+            val queryWords = queryLower.split(Regex("\\s+")).filter { it.length > 2 }
+
+            songs.maxByOrNull { song ->
+                var score = 0.0
+
+                // Duration score (max 100)
+                if (song.duration != null && song.duration > 0) {
+                    val diff = kotlin.math.abs(song.duration - durationSeconds)
+                    val durationScore = (1.0 - (diff.toDouble() / durationSeconds.toDouble())).coerceIn(0.0, 1.0) * 100.0
+                    score += durationScore
+                }
+
+                // Title and Artist match score
+                val songTitle = song.title?.lowercase() ?: ""
+                val songArtist = song.artist?.lowercase() ?: ""
+
+                // Penalties for unwanted terms if they are not in the query
+                val unwantedTerms = listOf("instrumental", "karaoke", "backing track", "minus one")
+                for (term in unwantedTerms) {
+                    if (!queryLower.contains(term) && songTitle.contains(term)) {
+                        score -= 50.0
+                    }
+                }
+
+                // Text match score
+                var matchCount = 0
+                queryWords.forEach { word ->
+                    if (songTitle.contains(word) || songArtist.contains(word)) {
+                        matchCount++
+                    }
+                }
+                if (queryWords.isNotEmpty()) {
+                    score += (matchCount.toDouble() / queryWords.size.toDouble()) * 50.0
+                }
+
+                score
+            } ?: songs.first()
         } else {
             songs.first()
         }
