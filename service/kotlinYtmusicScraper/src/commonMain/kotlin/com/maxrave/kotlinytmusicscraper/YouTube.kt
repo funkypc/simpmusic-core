@@ -1911,7 +1911,7 @@ class YouTube {
                 val songArtist = song.artist?.lowercase() ?: ""
 
                 // Penalties for unwanted terms if they are not in the query
-                val unwantedTerms = listOf("instrumental", "karaoke", "backing track", "minus one")
+                val unwantedTerms = listOf("instrumental", "karaoke", "backing track", "minus one", "remix")
                 for (term in unwantedTerms) {
                     if (!queryLower.contains(term) && songTitle.contains(term)) {
                         score -= 50.0
